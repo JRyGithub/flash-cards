@@ -2,10 +2,16 @@
 
 import { MailCheck } from "lucide-react"
 import { useSearchParams } from "next/navigation"
-import { useActionState, useId } from "react"
+import { useActionState, useId, useState } from "react"
 import { useFormStatus } from "react-dom"
 
-import { type MagicLinkState, sendMagicLink, signInWithGithub } from "@/app/actions/auth"
+import {
+  type EmailCodeState,
+  type MagicLinkState,
+  sendMagicLink,
+  signInWithGithub,
+  verifyEmailCode,
+} from "@/app/actions/auth"
 import { Button } from "@/components/atoms/button"
 import { Input } from "@/components/atoms/input"
 import { Separator } from "@/components/atoms/separator"
@@ -37,24 +43,35 @@ function SubmitButton({ children, variant }: { children: React.ReactNode; varian
 }
 
 export function LoginPanel() {
-  const id = useId()
   const params = useSearchParams()
-  const next = params.get("next") ?? ""
-  const error = ERRORS[params.get("error") ?? ""]
+  // Remounting the options resets the email step when the user wants to start over.
+  const [attempt, setAttempt] = useState(0)
+  return (
+    <SignInOptions
+      key={attempt}
+      next={params.get("next") ?? ""}
+      error={ERRORS[params.get("error") ?? ""]}
+      onRestart={() => setAttempt((n) => n + 1)}
+    />
+  )
+}
+
+function SignInOptions({
+  next,
+  error,
+  onRestart,
+}: {
+  next: string
+  error?: string
+  onRestart: () => void
+}) {
+  const id = useId()
   const [state, action] = useActionState<MagicLinkState, FormData>(sendMagicLink, {
     status: "idle",
   })
 
   if (state.status === "sent") {
-    return (
-      <div className="flex flex-col items-center gap-2 py-4 text-center" role="status">
-        <MailCheck className="text-muted-foreground size-8" />
-        <p className="font-medium">Check your email</p>
-        <p className="text-muted-foreground text-sm">
-          If that address is allowed in, a sign-in link is on its way.
-        </p>
-      </div>
-    )
+    return <EmailCodeForm email={state.email} next={state.next ?? next} onRestart={onRestart} />
   }
 
   return (
@@ -91,8 +108,66 @@ export function LoginPanel() {
             placeholder="you@example.com"
           />
         </FormField>
-        <SubmitButton variant="outline">Email me a sign-in link</SubmitButton>
+        <SubmitButton variant="outline">Email me a sign-in code</SubmitButton>
       </form>
+    </div>
+  )
+}
+
+/**
+ * Second step of email sign-in. Typing the code works everywhere, including an app installed
+ * to the home screen, where tapping the emailed link would open the browser instead.
+ */
+function EmailCodeForm({
+  email,
+  next,
+  onRestart,
+}: {
+  email: string
+  next: string
+  onRestart: () => void
+}) {
+  const id = useId()
+  const [state, action] = useActionState<EmailCodeState, FormData>(verifyEmailCode, {
+    status: "idle",
+  })
+
+  return (
+    <div className="grid gap-4">
+      <div className="flex flex-col items-center gap-2 text-center" role="status">
+        <MailCheck className="text-muted-foreground size-8" />
+        <p className="font-medium">Check your email</p>
+        <p className="text-muted-foreground text-sm">
+          If that address is allowed in, a sign-in email is on its way. Enter its code here, or open
+          its link on this device.
+        </p>
+      </div>
+      <form action={action} className="grid gap-3">
+        <input type="hidden" name="email" value={email} />
+        <input type="hidden" name="next" value={next} />
+        <FormField
+          id={`${id}-code`}
+          label="Code"
+          error={state.status === "error" ? state.message : null}
+        >
+          <Input
+            id={`${id}-code`}
+            name="code"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            pattern="[0-9]*"
+            maxLength={10}
+            required
+            autoFocus
+            placeholder="123456"
+            className="text-center font-mono text-lg tracking-widest"
+          />
+        </FormField>
+        <SubmitButton>Sign in</SubmitButton>
+      </form>
+      <Button type="button" variant="link" size="sm" onClick={onRestart}>
+        Use a different email
+      </Button>
     </div>
   )
 }

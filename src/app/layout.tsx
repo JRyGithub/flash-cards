@@ -15,6 +15,9 @@ export const metadata: Metadata = {
   title: { default: "Flash Cards", template: "%s · Flash Cards" },
   description: "Spaced-repetition flash cards organised into trees, branches and leaves.",
   robots: { index: false, follow: false },
+  // Opens full-screen, without browser bars, when launched from an iPhone home screen.
+  appleWebApp: { capable: true, title: "Flash Cards", statusBarStyle: "default" },
+  formatDetection: { telephone: false },
 }
 
 // Tints mobile browser chrome to match the --background token in each theme.

@@ -43,8 +43,10 @@ export async function proxy(request: NextRequest) {
   return response
 }
 
+// Static assets, icons and the web app manifest are public: phones fetch the manifest and
+// home-screen icons without the session cookie.
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
   ],
 }

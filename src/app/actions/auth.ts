@@ -5,9 +5,15 @@ import { redirect } from "next/navigation"
 import { z } from "zod"
 
 import { serverEnv } from "@/env"
+import { isOwner, safeRedirectPath } from "@/server/auth/owner"
 import { createSupabaseServerClient } from "@/server/auth/supabase"
 
-export type MagicLinkState = { status: "idle" | "sent" } | { status: "error"; message: string }
+export type MagicLinkState =
+  | { status: "idle" }
+  | { status: "sent"; email: string; next?: string }
+  | { status: "error"; message: string }
+
+export type EmailCodeState = { status: "idle" } | { status: "error"; message: string }
 
 /** Absolute origin for auth redirects. Supabase also checks it against its allow-list. */
 async function siteOrigin(): Promise<string> {
@@ -65,7 +71,58 @@ export async function sendMagicLink(
       return { status: "error", message: "Too many requests. Please wait a minute and try again." }
     }
   }
-  return { status: "sent" }
+  return { status: "sent", email: parsed.data.email, next: parsed.data.next }
+}
+
+const emailCodeSchema = z.object({
+  email: z.email(),
+  code: z
+    .string()
+    .trim()
+    .regex(/^\d{6,10}$/, "Enter the code from the email"),
+  next: z.string().optional(),
+})
+
+/**
+ * Signs in with the one-time code from the sign-in email. Unlike the link, which opens in
+ * the phone's browser, the code can be typed into an installed home-screen app, which keeps
+ * its own cookies separate from the browser.
+ */
+export async function verifyEmailCode(
+  _prev: EmailCodeState,
+  formData: FormData,
+): Promise<EmailCodeState> {
+  const parsed = emailCodeSchema.safeParse({
+    email: formData.get("email"),
+    code: formData.get("code"),
+    next: formData.get("next") || undefined,
+  })
+  if (!parsed.success) return { status: "error", message: parsed.error.issues[0]!.message }
+
+  const supabase = await createSupabaseServerClient()
+  const { data, error } = await supabase.auth.verifyOtp({
+    email: parsed.data.email,
+    token: parsed.data.code,
+    type: "email",
+  })
+  if (error?.status === 429) {
+    return { status: "error", message: "Too many attempts. Please wait a minute and try again." }
+  }
+  if (error || !data.user) {
+    return { status: "error", message: "That code is invalid or has expired." }
+  }
+
+  const env = serverEnv()
+  if (
+    !isOwner(data.user, {
+      adminEmail: env.ADMIN_EMAIL,
+      adminGithubUsername: env.ADMIN_GITHUB_USERNAME,
+    })
+  ) {
+    await supabase.auth.signOut()
+    return { status: "error", message: "That account isn't allowed to use this app." }
+  }
+  redirect(safeRedirectPath(parsed.data.next))
 }
 
 export async function signOut(): Promise<void> {

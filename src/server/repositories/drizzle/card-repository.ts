@@ -1,4 +1,4 @@
-import { and, asc, eq, getTableColumns, inArray, lt, min, sql } from "drizzle-orm"
+import { and, asc, count, eq, getTableColumns, inArray, lt, min, sql } from "drizzle-orm"
 
 import type { DbExecutor } from "../../db/types"
 import { cards, notes } from "../../db/schema"
@@ -92,6 +92,15 @@ export class DrizzleCardRepository implements CardRepository {
       .innerJoin(notes, eq(notes.id, cards.noteId))
       .groupBy(notes.nodeId)
     return new Map(rows.map(({ nodeId, ...counts }) => [nodeId, counts]))
+  }
+
+  async countByNode(): Promise<Map<string, number>> {
+    const rows = await this.db
+      .select({ nodeId: notes.nodeId, total: count() })
+      .from(cards)
+      .innerJoin(notes, eq(notes.id, cards.noteId))
+      .groupBy(notes.nodeId)
+    return new Map(rows.map(({ nodeId, total }) => [nodeId, total]))
   }
 
   async nextLearningDueAt(nodeIds: readonly string[]): Promise<Date | null> {

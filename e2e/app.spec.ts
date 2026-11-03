@@ -103,6 +103,23 @@ test.describe.serial("building and studying a tree", () => {
     await expect(page.getByText("Done for now!")).toBeVisible()
   })
 
+  test("practice runs through cards that aren't due", async ({ page }) => {
+    await page.goto(leafUrl)
+    await expect(page.getByRole("link", { name: /Study/ })).toHaveCount(0)
+    await page.getByRole("link", { name: "Practice" }).click()
+    await expect(page.getByText("3 left")).toBeVisible()
+
+    await page.keyboard.press("Space")
+    await page.keyboard.press("1")
+    await expect(page.getByText("3 left")).toBeVisible()
+    for (let i = 0; i < 3; i++) {
+      await page.keyboard.press("Space")
+      await page.keyboard.press("Space")
+    }
+    await expect(page.getByText("Practice complete")).toBeVisible()
+    await expect(page.getByText("1 needed another go")).toBeVisible()
+  })
+
   test("settings save and backups download", async ({ page }) => {
     await page.goto("/settings")
     await page.getByLabel("New cards per day").fill("15")

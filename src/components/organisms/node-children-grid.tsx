@@ -1,4 +1,4 @@
-import { GraduationCap } from "lucide-react"
+import { Dumbbell, GraduationCap } from "lucide-react"
 import Link from "next/link"
 
 import { Button } from "@/components/atoms/button"
@@ -7,7 +7,7 @@ import { NodeKindIcon } from "@/components/atoms/node-kind-icon"
 import { DueCounts, totalDue } from "@/components/molecules/due-counts"
 import type { NodeSummary } from "@/lib/view-models"
 
-/** Cards linking to child nodes (or top-level trees), each with due counts and a study shortcut. */
+/** Cards linking to child nodes (or top-level trees), each with due counts and a study (or practice) shortcut. */
 export function NodeChildrenGrid({ nodes }: { nodes: NodeSummary[] }) {
   return (
     <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -27,12 +27,20 @@ export function NodeChildrenGrid({ nodes }: { nodes: NodeSummary[] }) {
             </CardHeader>
             <CardContent className="mt-auto flex items-center justify-between gap-2">
               <DueCounts counts={n.counts} />
-              {totalDue(n.counts) > 0 && (
+              {totalDue(n.counts) > 0 ? (
                 <Button asChild size="sm" variant="secondary" className="relative z-10">
                   <Link href={`/nodes/${n.id}/study`}>
                     <GraduationCap /> Study
                   </Link>
                 </Button>
+              ) : (
+                n.cardCount > 0 && (
+                  <Button asChild size="sm" variant="ghost" className="relative z-10">
+                    <Link href={`/nodes/${n.id}/practice`}>
+                      <Dumbbell /> Practice
+                    </Link>
+                  </Button>
+                )
               )}
             </CardContent>
           </Card>

@@ -1,7 +1,7 @@
 "use client"
 
 import { cn } from "cn"
-import { ArrowLeft, Clock, PartyPopper, Repeat } from "lucide-react"
+import { ArrowLeft, Clock, Dumbbell, PartyPopper, Repeat } from "lucide-react"
 import Link from "next/link"
 import { useCallback, useEffect, useRef, useState, useTransition } from "react"
 import { toast } from "sonner"
@@ -187,11 +187,18 @@ export function StudySession({
               : "There are no cards due in here today."
           }
           action={
-            <Button asChild>
-              <Link href={`/nodes/${nodeId}`}>
-                <ArrowLeft /> Back to {nodeName}
-              </Link>
-            </Button>
+            <div className="flex gap-2">
+              <Button asChild>
+                <Link href={`/nodes/${nodeId}`}>
+                  <ArrowLeft /> Back to {nodeName}
+                </Link>
+              </Button>
+              <Button asChild variant="outline">
+                <Link href={`/nodes/${nodeId}/practice`}>
+                  <Dumbbell /> Practice anyway
+                </Link>
+              </Button>
+            </div>
           }
         />
       )}

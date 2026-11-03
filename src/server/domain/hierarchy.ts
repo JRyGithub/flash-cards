@@ -1,4 +1,4 @@
-import type { DueCounts, NodeKind, TreeNode } from "./types"
+import { type DueCounts, EMPTY_COUNTS, type NodeKind, type TreeNode } from "./types"
 
 /** Trees and branches can contain branches and leaves; leaves are terminal. */
 export function canHaveChildren(kind: NodeKind): boolean {
@@ -25,6 +25,27 @@ export function rollUpCounts(
   nodes: readonly TreeNode[],
   ownCounts: ReadonlyMap<string, DueCounts>,
 ): Map<string, DueCounts> {
+  return rollUp(nodes, ownCounts, EMPTY_COUNTS, (a, b) => ({
+    new: a.new + b.new,
+    learning: a.learning + b.learning,
+    review: a.review + b.review,
+  }))
+}
+
+/** Sum each node's own card total with all of its descendants'. */
+export function rollUpTotals(
+  nodes: readonly TreeNode[],
+  ownTotals: ReadonlyMap<string, number>,
+): Map<string, number> {
+  return rollUp(nodes, ownTotals, 0, (a, b) => a + b)
+}
+
+function rollUp<T>(
+  nodes: readonly TreeNode[],
+  own: ReadonlyMap<string, T>,
+  zero: T,
+  add: (a: T, b: T) => T,
+): Map<string, T> {
   const children = new Map<string | null, TreeNode[]>()
   for (const node of nodes) {
     const siblings = children.get(node.parentId) ?? []
@@ -32,16 +53,10 @@ export function rollUpCounts(
     children.set(node.parentId, siblings)
   }
 
-  const totals = new Map<string, DueCounts>()
-  const visit = (node: TreeNode): DueCounts => {
-    const own = ownCounts.get(node.id)
-    const total = { new: own?.new ?? 0, learning: own?.learning ?? 0, review: own?.review ?? 0 }
-    for (const child of children.get(node.id) ?? []) {
-      const c = visit(child)
-      total.new += c.new
-      total.learning += c.learning
-      total.review += c.review
-    }
+  const totals = new Map<string, T>()
+  const visit = (node: TreeNode): T => {
+    let total = own.get(node.id) ?? zero
+    for (const child of children.get(node.id) ?? []) total = add(total, visit(child))
     totals.set(node.id, total)
     return total
   }

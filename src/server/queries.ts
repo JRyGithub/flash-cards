@@ -3,6 +3,7 @@ import "server-only"
 import { notFound } from "next/navigation"
 import { cache } from "react"
 
+import { shuffle } from "@/lib/shuffle"
 import type { NodeSummary, NoteView } from "@/lib/view-models"
 import { uuidSchema } from "@/lib/validation"
 
@@ -21,8 +22,12 @@ import { EMPTY_COUNTS, type TreeNode } from "./domain/types"
 export const getNodeSummaries = cache(async (): Promise<NodeSummary[]> => {
   await requireOwner()
   const { nodes, study } = getServices()
-  const [all, counts] = await Promise.all([nodes.listAll(), study.countsForAll()])
-  return all.map((n) => toSummary(n, counts.get(n.id)))
+  const [all, counts, totals] = await Promise.all([
+    nodes.listAll(),
+    study.countsForAll(),
+    study.cardTotalsForAll(),
+  ])
+  return all.map((n) => toSummary(n, counts.get(n.id), totals.get(n.id)))
 })
 
 export interface MoveTarget {
@@ -73,6 +78,19 @@ export async function getStudyStart(rawId: string) {
   }
 }
 
+export async function getPracticeStart(rawId: string) {
+  const id = parseId(rawId)
+  await requireOwner()
+  const { nodes, study } = getServices()
+  try {
+    const [node, deck] = await Promise.all([nodes.get(id), study.practiceDeck(id)])
+    return { node: { id: node.id, name: node.name, kind: node.kind }, deck: shuffle(deck) }
+  } catch (error) {
+    if (error instanceof NotFoundError) notFound()
+    throw error
+  }
+}
+
 export async function getSettings() {
   await requireOwner()
   return getServices().settings.get()
@@ -84,7 +102,7 @@ function parseId(raw: string): string {
   return parsed.data
 }
 
-function toSummary(n: TreeNode, counts = EMPTY_COUNTS): NodeSummary {
+function toSummary(n: TreeNode, counts = EMPTY_COUNTS, cardCount = 0): NodeSummary {
   return {
     id: n.id,
     parentId: n.parentId,
@@ -93,6 +111,7 @@ function toSummary(n: TreeNode, counts = EMPTY_COUNTS): NodeSummary {
     description: n.description,
     position: n.position,
     counts,
+    cardCount,
   }
 }
 

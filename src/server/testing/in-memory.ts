@@ -235,6 +235,14 @@ class MemoryCardRepository implements CardRepository {
     }
     return counts
   }
+  async countByNode() {
+    const totals = new Map<string, number>()
+    for (const c of this.s.cards.values()) {
+      const nodeId = this.s.notes.get(c.noteId)!.nodeId
+      totals.set(nodeId, (totals.get(nodeId) ?? 0) + 1)
+    }
+    return totals
+  }
   async nextLearningDueAt(nodeIds: readonly string[]) {
     const [first] = await this.findLearningDue(nodeIds, new Date(8.64e15), 1)
     return first?.dueAt ?? null

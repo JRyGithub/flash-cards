@@ -1,5 +1,5 @@
 import { NotFoundError } from "../domain/errors"
-import { rollUpCounts } from "../domain/hierarchy"
+import { rollUpCounts, rollUpTotals } from "../domain/hierarchy"
 import { formatInterval, LEARN_AHEAD_MS, studyDayBounds } from "../domain/time"
 import {
   type Card,
@@ -23,6 +23,12 @@ export interface StudyCard {
   /** Interval label per rating, e.g. { 1: "1m", 2: "6m", 3: "10m", 4: "4d" }. */
   intervals: Record<Rating, string>
 }
+
+/** A card for practice, which shows cards without scheduling them. */
+export type PracticeCard = Pick<
+  StudyCard,
+  "cardId" | "noteId" | "nodeId" | "direction" | "promptMd" | "answerMd"
+>
 
 export interface StudyState {
   current: StudyCard | null
@@ -59,6 +65,43 @@ export class StudyService {
     const totals = rollUpCounts(nodes, own)
     for (const [id, counts] of totals) totals.set(id, cap(counts, budget))
     return totals
+  }
+
+  /** Total cards for every node, including all descendants, whether due or not. */
+  async cardTotalsForAll(): Promise<Map<string, number>> {
+    const [nodes, own] = await Promise.all([
+      this.deps.nodes.listAll(),
+      this.deps.cards.countByNode(),
+    ])
+    return rollUpTotals(nodes, own)
+  }
+
+  /** Every card in the node and its descendants, in note order, for unscheduled practice. */
+  async practiceDeck(nodeId: string): Promise<PracticeCard[]> {
+    const node = await this.deps.nodes.findById(nodeId)
+    if (!node) throw new NotFoundError("Node", nodeId)
+
+    const subtree = await this.deps.nodes.listSubtreeIds(nodeId)
+    const notes = await this.deps.notes.listByNodes(subtree)
+    const byNote = new Map(notes.map((n) => [n.id, n]))
+    const cards = await this.deps.cards.listByNotes(notes.map((n) => n.id))
+    const order = new Map(notes.map((n, i) => [n.id, i]))
+    cards.sort(
+      (a, b) =>
+        order.get(a.noteId)! - order.get(b.noteId)! || a.direction.localeCompare(b.direction),
+    )
+    return cards.map((card) => {
+      const note = byNote.get(card.noteId)!
+      const forward = card.direction === "forward"
+      return {
+        cardId: card.id,
+        noteId: note.id,
+        nodeId: note.nodeId,
+        direction: card.direction,
+        promptMd: forward ? note.frontMd : note.backMd,
+        answerMd: forward ? note.backMd : note.frontMd,
+      }
+    })
   }
 
   /** The next card to study from the node and its descendants. */

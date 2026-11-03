@@ -131,4 +131,29 @@ describe("StudyService", () => {
     expect(counts.get(leafA.id)?.new).toBe(2)
     expect(counts.get(leafB.id)?.new).toBe(1)
   })
+
+  it("counts every card up the tree, due or not", async () => {
+    const { services, tree, section, leafB } = await seed()
+    const { current } = await services.study.next(leafB.id)
+    await services.study.review(leafB.id, current!.cardId, Rating.Easy, null)
+
+    const totals = await services.study.cardTotalsForAll()
+    expect(totals.get(tree.id)).toBe(4)
+    expect(totals.get(section.id)).toBe(3)
+    expect(totals.get(leafB.id)).toBe(1)
+    expect((await services.study.countsForAll()).get(leafB.id)?.new).toBe(0)
+  })
+
+  it("practice includes every card in the subtree, even ones not due", async () => {
+    const { services, leafA, leafB, section } = await seed()
+    const { current } = await services.study.next(leafB.id)
+    await services.study.review(leafB.id, current!.cardId, Rating.Easy, null)
+
+    expect(await services.study.practiceDeck(leafB.id)).toEqual([
+      expect.objectContaining({ promptMd: "Leaf B Q", answerMd: "Leaf B A" }),
+    ])
+    const deck = await services.study.practiceDeck(section.id)
+    expect(deck.map((c) => c.promptMd)).toEqual(["Branch Q", "Leaf A Q", "Leaf A A"])
+    expect(deck.find((c) => c.direction === "reverse")?.nodeId).toBe(leafA.id)
+  })
 })

@@ -1,4 +1,4 @@
-import { GitBranch, GraduationCap, Plus } from "lucide-react"
+import { Dumbbell, GitBranch, GraduationCap, Plus } from "lucide-react"
 import type { Metadata } from "next"
 import Link from "next/link"
 import { Suspense } from "react"
@@ -53,15 +53,22 @@ async function NodeView({ params }: { params: PageProps<"/nodes/[id]">["params"]
           meta={<DueCounts counts={node.counts} showLabels className="pt-1" />}
           actions={
             <>
-              {due > 0 ? (
+              {due > 0 && (
                 <Button asChild>
                   <Link href={`/nodes/${node.id}/study`}>
                     <GraduationCap /> Study {due}
                   </Link>
                 </Button>
+              )}
+              {node.cardCount > 0 ? (
+                <Button asChild variant={due > 0 ? "outline" : "default"}>
+                  <Link href={`/nodes/${node.id}/practice`}>
+                    <Dumbbell /> Practice
+                  </Link>
+                </Button>
               ) : (
                 <Button disabled>
-                  <GraduationCap /> Nothing due
+                  <GraduationCap /> No cards yet
                 </Button>
               )}
               {canHaveChildren && addChild}

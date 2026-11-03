@@ -83,6 +83,8 @@ export interface CardRepository {
   findNew(nodeIds: readonly string[], limit: number): Promise<Card[]>
   /** Raw (un-capped) due counts per node for every node that has cards. */
   countDueByNode(window: DueWindow): Promise<Map<string, DueCounts>>
+  /** Total cards per node for every node that has cards, regardless of due state. */
+  countByNode(): Promise<Map<string, number>>
   /** Earliest due time among learning cards in the nodes, if any. */
   nextLearningDueAt(nodeIds: readonly string[]): Promise<Date | null>
 }

@@ -12,6 +12,8 @@ export interface NodeSummary {
   description: string | null
   position: number
   counts: DueCounts
+  /** Every card in the node and its descendants, due or not. */
+  cardCount: number
 }
 
 export interface NoteView {
